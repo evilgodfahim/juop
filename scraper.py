@@ -2,7 +2,6 @@ import requests
 from bs4 import BeautifulSoup
 import xml.etree.ElementTree as ET
 from datetime import datetime
-import os
 
 def scrape_jugantor_editorial():
     """
@@ -23,14 +22,9 @@ def scrape_jugantor_editorial():
         
         news_list = []
         
-        # Find all news items (both desktop and mobile versions)
-        # Desktop version
+        # Find all news items (desktop + mobile versions)
         desktop_news = soup.select('.desktopSectionListMedia .media')
-        
-        # Mobile version
         mobile_news = soup.select('.sectionListMedia .media')
-        
-        # Combine and remove duplicates
         all_news = desktop_news + mobile_news
         
         # Also get lead news
@@ -45,10 +39,9 @@ def scrape_jugantor_editorial():
                 title_elem = item.select_one('h1, h2, h3, h4')
                 if not title_elem:
                     continue
-                    
                 title = title_elem.get_text(strip=True)
                 
-                # Skip if already seen
+                # Skip duplicates
                 if title in seen_titles:
                     continue
                 seen_titles.add(title)
@@ -65,11 +58,11 @@ def scrape_jugantor_editorial():
                 if img_elem:
                     image = img_elem.get('data-src') or img_elem.get('src', '')
                 
-                # Extract summary (if available)
+                # Extract summary
                 summary_elem = item.select_one('.desktopSummary, p')
                 summary = summary_elem.get_text(strip=True) if summary_elem else ''
                 
-                # Extract time (if available)
+                # Extract time
                 time_elem = item.select_one('.desktopTime')
                 pub_time = time_elem.get_text(strip=True) if time_elem else ''
                 
@@ -94,58 +87,58 @@ def scrape_jugantor_editorial():
 
 def save_to_xml(data, filename='editorial_news.xml'):
     """
-    Save scraped data to XML file
+    Save scraped data as a valid RSS 2.0 feed
     """
     try:
-        # Create root element
-        root = ET.Element('editorial_news')
-        
-        # Add metadata
-        metadata = ET.SubElement(root, 'metadata')
-        ET.SubElement(metadata, 'last_updated').text = datetime.now().isoformat()
-        ET.SubElement(metadata, 'total_news').text = str(len(data))
-        ET.SubElement(metadata, 'source').text = 'https://www.jugantor.com/editorial'
-        
-        # Add news items
-        news_items = ET.SubElement(root, 'news_items')
-        
+        rss = ET.Element('rss', version='2.0')
+        channel = ET.SubElement(rss, 'channel')
+
+        # Channel metadata
+        ET.SubElement(channel, 'title').text = 'Jugantor Editorials'
+        ET.SubElement(channel, 'link').text = 'https://www.jugantor.com/editorial'
+        ET.SubElement(channel, 'description').text = 'Latest editorials from Jugantor newspaper'
+        ET.SubElement(channel, 'language').text = 'bn-BD'
+        ET.SubElement(channel, 'lastBuildDate').text = datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S +0000")
+        ET.SubElement(channel, 'generator').text = 'Jugantor Editorial Scraper'
+
+        # Add each news item
         for news in data:
-            item = ET.SubElement(news_items, 'item')
-            ET.SubElement(item, 'title').text = news['title']
-            ET.SubElement(item, 'link').text = news['link']
-            ET.SubElement(item, 'image').text = news['image']
-            ET.SubElement(item, 'summary').text = news['summary']
-            ET.SubElement(item, 'published_time').text = news['published_time']
-            ET.SubElement(item, 'scraped_at').text = news['scraped_at']
-        
-        # Create tree and write to file with pretty formatting
-        tree = ET.ElementTree(root)
+            item = ET.SubElement(channel, 'item')
+            ET.SubElement(item, 'title').text = news.get('title', '')
+            ET.SubElement(item, 'link').text = news.get('link', '')
+            ET.SubElement(item, 'guid').text = news.get('link', '')
+            ET.SubElement(item, 'pubDate').text = datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S +0000")
+            
+            # description supports HTML via CDATA
+            desc = ET.SubElement(item, 'description')
+            summary_text = news.get('summary', '') or ''
+            image_url = news.get('image', '')
+            if image_url:
+                summary_text = f'<![CDATA[<img src="{image_url}" /><br>{summary_text}]]>'
+            else:
+                summary_text = f'<![CDATA[{summary_text}]]>'
+            desc.text = summary_text
+
+        # Write to file
+        tree = ET.ElementTree(rss)
         ET.indent(tree, space="  ")  # For Python 3.9+
         tree.write(filename, encoding='utf-8', xml_declaration=True)
-        
-        print(f"✓ Data saved to {filename}")
-        print(f"✓ Total news scraped: {len(data)}")
-    except AttributeError:
-        # Fallback for Python < 3.9 (without ET.indent)
-        tree = ET.ElementTree(root)
-        tree.write(filename, encoding='utf-8', xml_declaration=True)
-        print(f"✓ Data saved to {filename}")
-        print(f"✓ Total news scraped: {len(data)}")
+
+        print(f"✓ RSS feed saved to {filename}")
+        print(f"✓ Total news items: {len(data)}")
+
     except Exception as e:
-        print(f"Error saving to XML: {e}")
+        print(f"Error saving RSS feed: {e}")
 
 def main():
     print("Starting Jugantor Editorial News Scraper...")
     print("=" * 50)
     
-    # Scrape news
     news_data = scrape_jugantor_editorial()
     
     if news_data:
-        # Save to XML
         save_to_xml(news_data)
         
-        # Print first few titles
         print("\nLatest Editorial News:")
         print("-" * 50)
         for i, news in enumerate(news_data[:5], 1):
