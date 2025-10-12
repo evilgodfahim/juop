@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>যুগান্তর সম্পাদকীয়</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        h1 {
+            color: #b80000;
+            text-align: center;
+        }
+        .news-item {
+            background: white;
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .news-item h2 {
+            margin: 0 0 10px 0;
+            font-size: 1.3em;
+        }
+        .news-item a {
+            color: #b80000;
+            text-decoration: none;
+        }
+        .news-item a:hover {
+            text-decoration: underline;
+        }
+        .time {
+            color: #999;
+            font-size: 0.9em;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>যুগান্তর সম্পাদকীয়</h1>
+    <div id="news"></div>
+
+    <script>
+        fetch('editorial_news.xml')
+            .then(r => r.text())
+            .then(data => {
+                const parser = new DOMParser();
+                const xml = parser.parseFromString(data, 'text/xml');
+                const items = xml.querySelectorAll('item');
+                const container = document.getElementById('news');
+                
+                items.forEach(item => {
+                    const title = item.querySelector('title').textContent;
+                    const link = item.querySelector('link').textContent;
+                    const time = item.querySelector('published_time').textContent;
+                    
+                    container.innerHTML += `
+                        <div class="news-item">
+                            <h2><a href="${link}" target="_blank">${title}</a></h2>
+                            <div class="time">${time}</div>
+                        </div>
+                    `;
+                });
+            });
+    </script>
+</body>
+</html>
