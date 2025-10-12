@@ -1,7 +1,6 @@
 import requests
 from bs4 import BeautifulSoup
 import xml.etree.ElementTree as ET
-from xml.dom import minidom
 from datetime import datetime
 import os
 
@@ -119,13 +118,17 @@ def save_to_xml(data, filename='editorial_news.xml'):
             ET.SubElement(item, 'published_time').text = news['published_time']
             ET.SubElement(item, 'scraped_at').text = news['scraped_at']
         
-        # Pretty print XML
-        xml_str = minidom.parseString(ET.tostring(root, encoding='utf-8')).toprettyxml(indent="  ")
+        # Create tree and write to file with pretty formatting
+        tree = ET.ElementTree(root)
+        ET.indent(tree, space="  ")  # For Python 3.9+
+        tree.write(filename, encoding='utf-8', xml_declaration=True)
         
-        # Save to file
-        with open(filename, 'w', encoding='utf-8') as f:
-            f.write(xml_str)
-        
+        print(f"✓ Data saved to {filename}")
+        print(f"✓ Total news scraped: {len(data)}")
+    except AttributeError:
+        # Fallback for Python < 3.9 (without ET.indent)
+        tree = ET.ElementTree(root)
+        tree.write(filename, encoding='utf-8', xml_declaration=True)
         print(f"✓ Data saved to {filename}")
         print(f"✓ Total news scraped: {len(data)}")
     except Exception as e:
