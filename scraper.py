@@ -1,6 +1,7 @@
 import requests
 from bs4 import BeautifulSoup
-import json
+import xml.etree.ElementTree as ET
+from xml.dom import minidom
 from datetime import datetime
 import os
 
@@ -92,21 +93,43 @@ def scrape_jugantor_editorial():
         print(f"Error scraping website: {e}")
         return []
 
-def save_to_json(data, filename='editorial_news.json'):
+def save_to_xml(data, filename='editorial_news.xml'):
     """
-    Save scraped data to JSON file
+    Save scraped data to XML file
     """
     try:
+        # Create root element
+        root = ET.Element('editorial_news')
+        
+        # Add metadata
+        metadata = ET.SubElement(root, 'metadata')
+        ET.SubElement(metadata, 'last_updated').text = datetime.now().isoformat()
+        ET.SubElement(metadata, 'total_news').text = str(len(data))
+        ET.SubElement(metadata, 'source').text = 'https://www.jugantor.com/editorial'
+        
+        # Add news items
+        news_items = ET.SubElement(root, 'news_items')
+        
+        for news in data:
+            item = ET.SubElement(news_items, 'item')
+            ET.SubElement(item, 'title').text = news['title']
+            ET.SubElement(item, 'link').text = news['link']
+            ET.SubElement(item, 'image').text = news['image']
+            ET.SubElement(item, 'summary').text = news['summary']
+            ET.SubElement(item, 'published_time').text = news['published_time']
+            ET.SubElement(item, 'scraped_at').text = news['scraped_at']
+        
+        # Pretty print XML
+        xml_str = minidom.parseString(ET.tostring(root, encoding='utf-8')).toprettyxml(indent="  ")
+        
+        # Save to file
         with open(filename, 'w', encoding='utf-8') as f:
-            json.dump({
-                'last_updated': datetime.now().isoformat(),
-                'total_news': len(data),
-                'news': data
-            }, f, ensure_ascii=False, indent=2)
+            f.write(xml_str)
+        
         print(f"✓ Data saved to {filename}")
         print(f"✓ Total news scraped: {len(data)}")
     except Exception as e:
-        print(f"Error saving to JSON: {e}")
+        print(f"Error saving to XML: {e}")
 
 def main():
     print("Starting Jugantor Editorial News Scraper...")
@@ -116,8 +139,8 @@ def main():
     news_data = scrape_jugantor_editorial()
     
     if news_data:
-        # Save to JSON
-        save_to_json(news_data)
+        # Save to XML
+        save_to_xml(news_data)
         
         # Print first few titles
         print("\nLatest Editorial News:")
@@ -131,4 +154,4 @@ def main():
         print("No news data scraped!")
 
 if __name__ == "__main__":
-    main()
+    main() 
