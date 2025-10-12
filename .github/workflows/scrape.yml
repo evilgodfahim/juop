@@ -31,9 +31,24 @@ jobs:
       run: |
         python scraper.py
         
+    - name: Check if XML file was created
+      run: |
+        if [ -f editorial_news.xml ]; then
+          echo "✓ XML file created successfully"
+          ls -lh editorial_news.xml
+        else
+          echo "✗ XML file not found!"
+          exit 1
+        fi
+        
     - name: Commit and push if changed
       run: |
         git config --global user.email "github-actions[bot]@users.noreply.github.com"
         git config --global user.name "github-actions[bot]"
-        git add editorial_news.json
-        git diff --quiet && git diff --staged --quiet || (git commit -m "Update editorial news - $(date '+%Y-%m-%d %H:%M:%S')" && git push)
+        git add -A
+        if git diff --staged --quiet; then
+          echo "No changes to commit"
+        else
+          git commit -m "Update editorial news - $(date '+%Y-%m-%d %H:%M:%S UTC')"
+          git push
+        fi 
