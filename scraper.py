@@ -3,82 +3,73 @@ from bs4 import BeautifulSoup
 import xml.etree.ElementTree as ET
 from datetime import datetime
 
-def scrape_jugantor_editorial():
+def scrape_url(url):
     """
-    Scrape editorial news from Jugantor website
+    Scrape one Jugantor editorial page
     """
-    urls = [
-        "https://www.jugantor.com/editorial",
-        "https://www.jugantor.com/tp-editorial"
-    ]
+    try:
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+        response = requests.get(url, headers=headers, timeout=30)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.content, 'html.parser')
 
-    news_list = []
-    seen_titles = set()
+        news_list = []
+        seen_titles = set()
 
-    for url in urls:
-        try:
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-            }
-            response = requests.get(url, headers=headers, timeout=30)
-            response.raise_for_status()
+        desktop_news = soup.select('.desktopSectionListMedia .media')
+        mobile_news = soup.select('.sectionListMedia .media')
+        all_news = desktop_news + mobile_news
 
-            soup = BeautifulSoup(response.content, 'html.parser')
+        lead_news = soup.select('.desktopSectionLead, .sectionLead')
+        all_news = lead_news + all_news
 
-            desktop_news = soup.select('.desktopSectionListMedia .media')
-            mobile_news = soup.select('.sectionListMedia .media')
-            all_news = desktop_news + mobile_news
-
-            lead_news = soup.select('.desktopSectionLead, .sectionLead')
-            all_news = lead_news + all_news
-
-            for item in all_news:
-                try:
-                    title_elem = item.select_one('h1, h2, h3, h4')
-                    if not title_elem:
-                        continue
-                    title = title_elem.get_text(strip=True)
-
-                    if title in seen_titles:
-                        continue
-                    seen_titles.add(title)
-
-                    link_elem = item.select_one('a.linkOverlay')
-                    link = link_elem['href'] if link_elem else ''
-                    if link and not link.startswith('http'):
-                        link = 'https://www.jugantor.com' + link
-
-                    img_elem = item.select_one('img')
-                    image = ''
-                    if img_elem:
-                        image = img_elem.get('data-src') or img_elem.get('src', '')
-
-                    summary_elem = item.select_one('.desktopSummary, p')
-                    summary = summary_elem.get_text(strip=True) if summary_elem else ''
-
-                    time_elem = item.select_one('.desktopTime')
-                    pub_time = time_elem.get_text(strip=True) if time_elem else ''
-
-                    news_list.append({
-                        'title': title,
-                        'link': link,
-                        'image': image,
-                        'summary': summary[:200] + '...' if len(summary) > 200 else summary,
-                        'published_time': pub_time,
-                        'scraped_at': datetime.now().isoformat()
-                    })
-
-                except Exception as e:
-                    print(f"Error parsing item: {e}")
+        for item in all_news:
+            try:
+                title_elem = item.select_one('h1, h2, h3, h4')
+                if not title_elem:
                     continue
+                title = title_elem.get_text(strip=True)
 
-        except Exception as e:
-            print(f"Error scraping website: {e}")
-            continue
+                if title in seen_titles:
+                    continue
+                seen_titles.add(title)
 
-    return news_list
+                link_elem = item.select_one('a.linkOverlay')
+                link = link_elem['href'] if link_elem else ''
+                if link and not link.startswith('http'):
+                    link = 'https://www.jugantor.com' + link
 
-def save_to_xml(data, filename='editorial_news.xml'):
+                img_elem = item.select_one('img')
+                image = ''
+                if img_elem:
+                    image = img_elem.get('data-src') or img_elem.get('src', '')
+
+                summary_elem = item.select_one('.desktopSummary, p')
+                summary = summary_elem.get_text(strip=True) if summary_elem else ''
+
+                time_elem = item.select_one('.desktopTime')
+                pub_time = time_elem.get_text(strip=True) if time_elem else ''
+
+                news_list.append({
+                    'title': title,
+                    'link': link,
+                    'image': image,
+                    'summary': summary[:200] + '...' if len(summary) > 200 else summary,
+                    'published_time': pub_time,
+                    'scraped_at': datetime.now().isoformat()
+                })
+
+            except:
+                continue
+
+        return news_list
+
+    except:
+        return []
+
+def save_to_xml(data, filename):
     """
     Save scraped data as a valid RSS 2.0 feed
     """
@@ -87,8 +78,8 @@ def save_to_xml(data, filename='editorial_news.xml'):
         channel = ET.SubElement(rss, 'channel')
 
         ET.SubElement(channel, 'title').text = 'Jugantor Editorials'
-        ET.SubElement(channel, 'link').text = 'https://www.jugantor.com/editorial'
-        ET.SubElement(channel, 'description').text = 'Latest editorials from Jugantor newspaper'
+        ET.SubElement(channel, 'link').text = 'https://www.jugantor.com'
+        ET.SubElement(channel, 'description').text = 'Latest editorials'
         ET.SubElement(channel, 'language').text = 'bn-BD'
         ET.SubElement(channel, 'lastBuildDate').text = datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S +0000")
         ET.SubElement(channel, 'generator').text = 'Jugantor Editorial Scraper'
@@ -113,30 +104,19 @@ def save_to_xml(data, filename='editorial_news.xml'):
         ET.indent(tree, space="  ")
         tree.write(filename, encoding='utf-8', xml_declaration=True)
 
-        print(f"✓ RSS feed saved to {filename}")
-        print(f"✓ Total news items: {len(data)}")
+        print(f"Saved: {filename} ({len(data)} items)")
 
     except Exception as e:
-        print(f"Error saving RSS feed: {e}")
+        print(e)
 
 def main():
-    print("Starting Jugantor Editorial News Scraper...")
-    print("=" * 50)
+    print("Scraping...")
 
-    news_data = scrape_jugantor_editorial()
+    editorial = scrape_url("https://www.jugantor.com/editorial")
+    tp_editorial = scrape_url("https://www.jugantor.com/tp-editorial")
 
-    if news_data:
-        save_to_xml(news_data)
-
-        print("\nLatest Editorial News:")
-        print("-" * 50)
-        for i, news in enumerate(news_data[:5], 1):
-            print(f"{i}. {news['title']}")
-
-        if len(news_data) > 5:
-            print(f"... and {len(news_data) - 5} more")
-    else:
-        print("No news data scraped!")
+    save_to_xml(editorial, "editorial_news.xml")
+    save_to_xml(tp_editorial, "tp_editorial_news.xml")
 
 if __name__ == "__main__":
     main()
