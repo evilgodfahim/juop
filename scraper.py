@@ -5,7 +5,7 @@ from datetime import datetime
 
 def scrape_url(url):
     """
-    Scrape one Jugantor editorial page
+    Scrape one Jugantor editorial-type page
     """
     try:
         headers = {
@@ -77,7 +77,7 @@ def save_to_xml(data, filename):
         rss = ET.Element('rss', version='2.0')
         channel = ET.SubElement(rss, 'channel')
 
-        ET.SubElement(channel, 'title').text = 'Jugantor Editorials'
+        ET.SubElement(channel, 'title').text = filename
         ET.SubElement(channel, 'link').text = 'https://www.jugantor.com'
         ET.SubElement(channel, 'description').text = 'Latest editorials'
         ET.SubElement(channel, 'language').text = 'bn-BD'
@@ -114,9 +114,11 @@ def main():
 
     editorial = scrape_url("https://www.jugantor.com/editorial")
     tp_editorial = scrape_url("https://www.jugantor.com/tp-editorial")
+    tp_ub_editorial = scrape_url("https://www.jugantor.com/tp-ub-editorial")
 
     save_to_xml(editorial, "editorial_news.xml")
     save_to_xml(tp_editorial, "tp_editorial_news.xml")
+    save_to_xml(tp_ub_editorial, "tp_ub_editorial_news.xml")
 
 if __name__ == "__main__":
     main()
